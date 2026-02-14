@@ -6,7 +6,8 @@ Upload any PDF, define the attributes you want extracted, and the system pulls t
 
 - Python
 - LangChain
-- Google Gemini
+- Google Gemini (LLM)
+- HuggingFace Sentence Transformers (embeddings)
 - ChromaDB
 - pdfplumber
 - Streamlit
@@ -56,3 +57,7 @@ If everything is configured properly, you should see `ALL TESTS PASSED` at the e
 ```bash
 streamlit run app.py
 ```
+
+## Note
+
+The `chroma_db/` folder stores embeddings on disk so the app doesn't re-embed every time it runs. If you change the chunking logic or text cleaning, delete the `chroma_db/` folder and re-run to regenerate fresh embeddings.
