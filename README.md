@@ -41,7 +41,17 @@ Create a `.env` file in the project root:
 GOOGLE_API_KEY=your_google_api_key_here
 ```
 
-### 5. Run the app
+### 5. Verify your setup
+
+Run the test script to confirm that your API key, embeddings, ChromaDB, and PDF reading are all working correctly:
+
+```bash
+python test_setup.py
+```
+
+If everything is configured properly, you should see `ALL TESTS PASSED` at the end.
+
+### 6. Run the app
 
 ```bash
 streamlit run app.py
