@@ -80,7 +80,17 @@ Extract the value for: {attribute_name}"""
 
     content = response.content
     if isinstance(content, list):
-        content = " ".join(str(part) for part in content)
+        parts = []
+        for part in content:
+            if isinstance(part, dict) and "text" in part:
+                parts.append(part["text"])
+            elif isinstance(part, str):
+                parts.append(part)
+            else:
+                parts.append(str(part))
+        content = " ".join(parts)
+    elif isinstance(content, dict) and "text" in content:
+        content = content["text"]
     raw = content.strip()
 
     # Strip markdown fences if present
@@ -98,6 +108,7 @@ Extract the value for: {attribute_name}"""
     return {
         "value": parsed.get("value", "not found"),
         "confidence": parsed.get("confidence", "low"),
+        "reasoning": parsed.get("reasoning", ""),
         "source_pages": source_pages,
         "source_chunks": source_chunks,
     }
@@ -123,10 +134,9 @@ def extract_all_attributes(
         A mapping of ``{attribute_name: result_dict}`` where each
         ``result_dict`` is the output of ``extract_attribute``.
     """
-    api_key = os.getenv("GOOGLE_API_KEY")
     results = {}
     for name in attribute_list:
-        results[name] = extract_attribute(collection, name, api_key)
+        results[name] = extract_attribute(collection, name)
     return results
 
 
