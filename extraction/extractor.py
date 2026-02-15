@@ -1,41 +1,39 @@
+import json
 import os
+
+import chromadb
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_community.vectorstores import Chroma
+from extraction.vector_store import query_vector_store
 from config import GEMINI_MODEL
 
 load_dotenv()
 
-SYSTEM_PROMPT = """You are a document analysis assistant. You will be given chunks of text
-from a legal/financial document and a question about a specific attribute.
+SYSTEM_PROMPT = """You are reading excerpts from a legal document.
+Based only on these excerpts, extract the value for the requested attribute.
+Respond in JSON with exactly these keys:
+- "value": the extracted answer (use "not found" if the answer is not in the excerpts)
+- "confidence": "high", "medium", or "low" based on how clearly the answer appears
+- "reasoning": one sentence explaining where you found it
 
-Instructions:
-- Answer ONLY based on the provided chunks. Do not make up information.
-- If the answer is not found in the chunks, say "Not found in document."
-- Be concise and precise.
-- At the end of your answer, on a new line, write your confidence level as exactly
-  one of: CONFIDENCE: high, CONFIDENCE: medium, or CONFIDENCE: low."""
+Respond with ONLY the JSON object, no markdown fences, no extra text."""
 
 
 def extract_attribute(
-    vector_store: Chroma,
-    query: str,
-    api_key: str = None,
+    collection: chromadb.Collection,
+    attribute_name: str,
     k: int = 5,
 ) -> dict:
     """
-    Query the vector store for relevant chunks and send them to Gemini
-    to extract a specific attribute.
+    Query the collection using the attribute name, then ask Gemini
+    to extract its value from the retrieved chunks.
 
     Parameters
     ----------
-    vector_store : Chroma
-        A LangChain Chroma vector store to search.
-    query : str
-        The attribute prompt describing what to extract.
-    api_key : str, optional
-        Google API key. If not provided, falls back to the GOOGLE_API_KEY
-        environment variable.
+    collection : chromadb.Collection
+        A ChromaDB collection to search.
+    attribute_name : str
+        The name of the attribute to extract (e.g. "borrower").
     k : int, optional
         Number of top chunks to retrieve. Default is 5.
 
@@ -43,30 +41,33 @@ def extract_attribute(
     -------
     dict
         A dict with keys:
-        - ``answer``: the extracted answer string
+        - ``value``: the extracted answer string
         - ``confidence``: one of "high", "medium", or "low"
         - ``source_pages``: list of page numbers the chunks came from
         - ``source_chunks``: list of raw chunk texts used
     """
-    api_key = api_key or os.getenv("GOOGLE_API_KEY")
+    api_key = os.getenv("GOOGLE_API_KEY")
 
-    results = vector_store.similarity_search_with_score(query, k=k)
+    results = query_vector_store(collection, attribute_name, k=k)
 
-    source_chunks = [doc.page_content for doc, _ in results]
+    docs = results["documents"][0]
+    metas = results["metadatas"][0]
+
+    source_chunks = docs
     source_pages = list(dict.fromkeys(
-        doc.metadata.get("page") for doc, _ in results
+        meta.get("page") for meta in metas
     ))
 
     context = "\n\n---\n\n".join(
-        f"[Page {doc.metadata.get('page', '?')}]\n{doc.page_content}"
-        for doc, _ in results
+        f"[Page {metas[i].get('page', '?')}]\n{docs[i]}"
+        for i in range(len(docs))
     )
 
-    user_message = f"""Here are the relevant chunks from the document:
+    user_message = f"""Here are the relevant excerpts from the document:
 
 {context}
 
-Question: {query}"""
+Extract the value for: {attribute_name}"""
 
     llm = ChatGoogleGenerativeAI(
         model=GEMINI_MODEL,
@@ -80,43 +81,41 @@ Question: {query}"""
     content = response.content
     if isinstance(content, list):
         content = " ".join(str(part) for part in content)
-    raw_answer = content.strip()
+    raw = content.strip()
 
-    confidence = "low"
-    answer = raw_answer
-    for level in ("high", "medium", "low"):
-        tag = f"CONFIDENCE: {level}"
-        if tag in raw_answer.lower():
-            confidence = level
-            answer = raw_answer[:raw_answer.lower().rfind("confidence")].strip()
-            break
+    # Strip markdown fences if present
+    if raw.startswith("```"):
+        raw = raw.split("\n", 1)[-1]
+    if raw.endswith("```"):
+        raw = raw.rsplit("```", 1)[0]
+    raw = raw.strip()
+
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        parsed = {"value": raw, "confidence": "low", "reasoning": "Failed to parse JSON"}
 
     return {
-        "answer": answer,
-        "confidence": confidence,
+        "value": parsed.get("value", "not found"),
+        "confidence": parsed.get("confidence", "low"),
         "source_pages": source_pages,
         "source_chunks": source_chunks,
     }
 
 
 def extract_all_attributes(
-    vector_store: Chroma,
-    attributes_dict: dict[str, str],
-    api_key: str = None,
+    collection,
+    attribute_list: list[str],
 ) -> dict[str, dict]:
     """
     Extract multiple attributes from the document.
 
     Parameters
     ----------
-    vector_store : Chroma
-        A LangChain Chroma vector store to search.
-    attributes_dict : dict[str, str]
-        A mapping of ``{attribute_name: prompt}`` where each prompt
-        describes the attribute to extract.
-    api_key : str, optional
-        Google API key. If not provided, falls back to the GOOGLE_API_KEY
-        environment variable.
+    collection : chromadb.Collection
+        A ChromaDB collection to search.
+    attribute_list : list[str]
+        A list of attribute names to extract.
 
     Returns
     -------
@@ -124,21 +123,25 @@ def extract_all_attributes(
         A mapping of ``{attribute_name: result_dict}`` where each
         ``result_dict`` is the output of ``extract_attribute``.
     """
-    api_key = api_key or os.getenv("GOOGLE_API_KEY")
+    api_key = os.getenv("GOOGLE_API_KEY")
     results = {}
-    for name, prompt in attributes_dict.items():
-        results[name] = extract_attribute(vector_store, prompt, api_key)
+    for name in attribute_list:
+        results[name] = extract_attribute(collection, name, api_key)
     return results
 
 
-if __name__ == "__main__":
-    from extraction.vector_store import load_vector_store
+def save_results(results: dict, output_path: str = "results.json") -> None:
+    """
+    Save extraction results to a JSON file.
 
-    print("Loading vector store...")
-    vs = load_vector_store()
+    Parameters
+    ----------
+    results : dict
+        The output of ``extract_all_attributes``.
+    output_path : str, optional
+        File path for the output JSON. Default is ``"results.json"``.
+    """
+    with open(output_path, "w") as f:
+        json.dump(results, f, indent=2)
 
-    result = extract_attribute(vs, "Who is the borrower?")
 
-    print(f"\nAnswer: {result['answer']}")
-    print(f"Confidence: {result['confidence']}")
-    print(f"Source pages: {result['source_pages']}")
