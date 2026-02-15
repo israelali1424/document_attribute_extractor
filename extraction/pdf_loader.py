@@ -28,6 +28,65 @@ def extract_text_from_pdf(file_path: str) -> list[tuple[int, str]]:
     return pages
 
 
+def find_repeated_lines(
+    page_texts: list[str],
+    threshold: float = 0.5,
+) -> set[str]:
+    """
+    Find lines that appear in more than a given fraction of pages.
+
+    Parameters
+    ----------
+    page_texts : list[str]
+        The raw text of each page.
+    threshold : float, optional
+        Fraction of pages a line must appear in to be considered repeated.
+        Default is 0.5 (50%).
+
+    Returns
+    -------
+    set[str]
+        A set of lines that appear in more than ``threshold`` of pages.
+    """
+    total_pages = len(page_texts)
+    if total_pages == 0:
+        return set()
+
+    line_page_count: dict[str, int] = {}
+    for text in page_texts:
+        unique_lines = set(line.strip() for line in text.splitlines() if line.strip())
+        for line in unique_lines:
+            line_page_count[line] = line_page_count.get(line, 0) + 1
+
+    return {
+        line for line, count in line_page_count.items()
+        if count > total_pages * threshold
+    }
+
+
+def clean_page_text(text: str, repeated_lines: set[str]) -> str:
+    """
+    Remove repeated lines from a page's text and strip extra whitespace.
+
+    Parameters
+    ----------
+    text : str
+        The raw text of a single page.
+    repeated_lines : set[str]
+        Lines to remove.
+
+    Returns
+    -------
+    str
+        The cleaned text with repeated lines removed.
+    """
+    cleaned = [
+        line for line in text.splitlines()
+        if line.strip() and line.strip() not in repeated_lines
+    ]
+    return "\n".join(cleaned).strip()
+
+
 def chunk_pages(
     pages: list[tuple[int, str]],
     chunk_size: int,
@@ -106,5 +165,15 @@ def load_and_chunk_pdf(
     pages = extract_text_from_pdf(file_path)
     if not pages:
         return []
+
+    # Clean repeated lines (e.g. browser headers/footers) before chunking
+    page_texts = [text for _, text in pages]
+    repeated_lines = find_repeated_lines(page_texts)
+    pages = [
+        (page_num, clean_page_text(text, repeated_lines))
+        for page_num, text in pages
+    ]
+    pages = [(page_num, text) for page_num, text in pages if text]
+
     source = os.path.basename(file_path)
     return chunk_pages(pages, chunk_size, chunk_overlap, source=source)

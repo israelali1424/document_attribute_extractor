@@ -1,9 +1,9 @@
-import chromadb
+import os
+import shutil
 from langchain_core.documents import Document
 from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_community.vectorstores import Chroma
 from config import EMBEDDING_MODEL
-
-COLLECTION_NAME = "document_chunks"
 
 _embedder = None
 
@@ -26,9 +26,13 @@ def _get_embedder() -> HuggingFaceEmbeddings:
 def create_vector_store(
     documents: list[Document],
     persist_directory: str = "./chroma_db",
-) -> chromadb.Collection:
+    collection_name: str = "document_chunks",
+) -> Chroma:
     """
-    Embed documents and store them in a persistent ChromaDB collection.
+    Embed documents and store them in a persistent ChromaDB vector store.
+
+    Deletes any existing store at ``persist_directory`` first so the build
+    is always clean.
 
     Parameters
     ----------
@@ -37,76 +41,64 @@ def create_vector_store(
     persist_directory : str, optional
         Path on disk where ChromaDB will persist data.
         Default is ``"./chroma_db"``.
+    collection_name : str, optional
+        Name of the ChromaDB collection. Default is ``"document_chunks"``.
 
     Returns
     -------
-    chromadb.Collection
-        The ChromaDB collection containing the embedded documents.
+    Chroma
+        A LangChain Chroma vector store backed by a PersistentClient.
     """
-    client = chromadb.PersistentClient(path=persist_directory)
-    collection = client.get_or_create_collection(name=COLLECTION_NAME)
+    if os.path.exists(persist_directory):
+        shutil.rmtree(persist_directory)
 
-    embedder = _get_embedder()
-
-    ids = []
-    texts = []
-    metadatas = []
-    embeddings = []
-
-    for i, doc in enumerate(documents):
-        ids.append(f"chunk_{i}")
-        texts.append(doc.page_content)
-        metadatas.append({
-            "page": doc.metadata["page"],
-            "chunk_index": doc.metadata["chunk_index"],
-            "source": doc.metadata["source"],
-        })
-
-    embeddings = embedder.embed_documents(texts)
-
-    collection.add(
-        ids=ids,
-        documents=texts,
-        embeddings=embeddings,
-        metadatas=metadatas,
+    return Chroma.from_documents(
+        documents=documents,
+        embedding=_get_embedder(),
+        persist_directory=persist_directory,
+        collection_name=collection_name,
     )
-
-    return collection
 
 
 def load_vector_store(
     persist_directory: str = "./chroma_db",
-) -> chromadb.Collection:
+    collection_name: str = "document_chunks",
+) -> Chroma:
     """
-    Load an existing ChromaDB collection from disk without re-embedding.
+    Load an existing ChromaDB vector store from disk without re-embedding.
 
     Parameters
     ----------
     persist_directory : str, optional
         Path on disk where the ChromaDB data was previously persisted.
         Default is ``"./chroma_db"``.
+    collection_name : str, optional
+        Name of the ChromaDB collection. Default is ``"document_chunks"``.
 
     Returns
     -------
-    chromadb.Collection
-        The existing ChromaDB collection.
+    Chroma
+        A LangChain Chroma vector store loaded from the given directory.
     """
-    client = chromadb.PersistentClient(path=persist_directory)
-    return client.get_collection(name=COLLECTION_NAME)
+    return Chroma(
+        persist_directory=persist_directory,
+        embedding_function=_get_embedder(),
+        collection_name=collection_name,
+    )
 
 
 def query_vector_store(
-    collection: chromadb.Collection,
+    vector_store: Chroma,
     query: str,
     k: int = 5,
-) -> dict:
+) -> list[tuple[Document, float]]:
     """
-    Query the collection and return the most relevant document chunks.
+    Query the vector store and return the most relevant chunks with scores.
 
     Parameters
     ----------
-    collection : chromadb.Collection
-        A ChromaDB collection to search.
+    vector_store : Chroma
+        A LangChain Chroma vector store to search.
     query : str
         The search query string.
     k : int, optional
@@ -114,18 +106,12 @@ def query_vector_store(
 
     Returns
     -------
-    dict
-        Raw ChromaDB query results with keys ``documents``, ``metadatas``,
-        ``distances``, and ``ids``.
+    list[tuple[Document, float]]
+        A list of ``(Document, score)`` tuples. Lower score means a
+        better match.
     """
-    embedder = _get_embedder()
-    query_embedding = embedder.embed_query(query)
+    return vector_store.similarity_search_with_score(query, k=k)
 
-    return collection.query(
-        query_embeddings=[query_embedding],
-        n_results=k,
-        include=["documents", "metadatas", "distances"],
-    )
 
 # Test Example
 if __name__ == "__main__":
@@ -143,27 +129,26 @@ if __name__ == "__main__":
     documents = load_and_chunk_pdf(pdf_path)
     print(f"Total chunks: {len(documents)}")
 
-    # 2. Create the vector store
+    # 2. Create the vector store (deletes old one first)
     print("\nCreating vector store (this may take a moment)...")
-    collection = create_vector_store(documents)
-    print(f"Vector store created — {collection.count()} chunks stored in ./chroma_db")
+    vs = create_vector_store(documents)
+    print("Vector store created and persisted to ./chroma_db")
 
     # 3. Run test queries
     test_queries = [
-        "Who is the borrower?",
-        "What is the interest rate?",
-        "What triggers a change of control?",
+        "as Borrower",
+        "Lender",
+        "How much money is the CREDIT AGREEMENT worth",
     ]
 
     for query in test_queries:
         print(f"\n{'='*60}")
         print(f"Query: {query}")
         print("=" * 60)
-        results = query_vector_store(collection, query, k=3)
+        results = query_vector_store(vs, query, k=10)
 
-        for i in range(len(results["documents"][0])):
-            doc_text = results["documents"][0][i]
-            metadata = results["metadatas"][0][i]
-            distance = results["distances"][0][i]
-            print(f"\n  Chunk {i+1} (page {metadata['page']}, distance: {distance:.4f}):")
-            print(f"  {doc_text[:200]}...")
+        for i, (doc, score) in enumerate(results, 1):
+            page = doc.metadata.get("page", "?")
+            char_count = len(doc.page_content)
+            print(f"\n  Chunk {i} (page {page}, score: {score:.4f}, chars: {char_count}):")
+            print(f"  {doc.page_content[:200]}...")
