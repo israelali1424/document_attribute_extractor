@@ -66,7 +66,7 @@ extract_clicked = st.sidebar.button(
 # ── Main Area ───────────────────────────────────────────────────────
 
 st.title("Document Attribute Extractor")
-st.markdown("Upload a PDF, enter a search term, and extract structured data using AI.")
+
 
 if extract_clicked and uploaded_pdf and search_term.strip():
     term = search_term.strip()

@@ -55,9 +55,5 @@ If everything is configured properly, you should see `ALL TESTS PASSED` at the e
 ### 6. Run the app
 
 ```bash
-streamlit run app.py
+streamlit run streamlit/app.py
 ```
-
-## Note
-
-The `chroma_db/` folder stores embeddings on disk so the app doesn't re-embed every time it runs. If you change the chunking logic or text cleaning, delete the `chroma_db/` folder and re-run to regenerate fresh embeddings.
