@@ -24,31 +24,37 @@ def _get_embedder() -> HuggingFaceEmbeddings:
 def create_vector_store(
     documents: list[Document],
     collection_name: str = "document_chunks",
+    in_memory: bool = False,
 ) -> chromadb.Collection:
     """
-    Embed documents and store them in a persistent ChromaDB collection.
+    Embed documents and store them in a ChromaDB collection.
 
-    Deletes any existing store at ``persist_directory`` first so the build
-    is always clean.
+    When ``in_memory`` is False (default), uses a persistent client and
+    deletes any existing store first so the build is always clean.
+    When ``in_memory`` is True, uses an ephemeral client (no disk I/O).
 
     Parameters
     ----------
     documents : list[Document]
         A list of LangChain Document objects to embed and store.
-        Path on disk where ChromaDB will persist data.
-        Default is ``"./chroma_db"``.
     collection_name : str, optional
         Name of the ChromaDB collection. Default is ``"document_chunks"``.
+    in_memory : bool, optional
+        If True, use an ephemeral (in-memory) client instead of persisting
+        to disk. Default is False.
 
     Returns
     -------
     chromadb.Collection
         The ChromaDB collection containing the embedded documents.
     """
-    if os.path.exists(CHROMA_DB_PERSIST_DIRECTORY_PATH):
-        shutil.rmtree(CHROMA_DB_PERSIST_DIRECTORY_PATH)
+    if in_memory:
+        client = chromadb.EphemeralClient()
+    else:
+        if os.path.exists(CHROMA_DB_PERSIST_DIRECTORY_PATH):
+            shutil.rmtree(CHROMA_DB_PERSIST_DIRECTORY_PATH)
+        client = chromadb.PersistentClient(path=CHROMA_DB_PERSIST_DIRECTORY_PATH)
 
-    client = chromadb.PersistentClient(path=CHROMA_DB_PERSIST_DIRECTORY_PATH)
     collection = client.get_or_create_collection(name=collection_name)
 
     embedder = _get_embedder()
@@ -162,7 +168,8 @@ if __name__ == "__main__":
     # 3. Run test queries
     test_queries = [
        "Who is the borrower in this credit agreement?",
-        "How much is the credit agreement"
+        "How much is the credit agreement",
+        "(the “Borrower”)"
 ]
     for query in test_queries:
         print(f"\n{'='*60}")
