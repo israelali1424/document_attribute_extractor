@@ -1,15 +1,11 @@
-import os
 import glob
-from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_huggingface import HuggingFaceEmbeddings
-from config import GEMINI_MODEL, EMBEDDING_MODEL
-
-load_dotenv()
+from config import GEMINI_MODEL, EMBEDDING_MODEL, get_secret
 
 # Test 1: Can we call Gemini?
 print("Testing Gemini LLM connection...")
-llm = ChatGoogleGenerativeAI(model=GEMINI_MODEL, google_api_key=os.getenv("GOOGLE_API_KEY"))
+llm = ChatGoogleGenerativeAI(model=GEMINI_MODEL, google_api_key=get_secret("GOOGLE_API_KEY"))
 response = llm.invoke("Say 'Hello, the setup is working!' and nothing else.")
 print(f"LLM Response: {response.content}")
 

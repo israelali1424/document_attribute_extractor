@@ -1,13 +1,9 @@
 import json
-import os
 
 import chromadb
-from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
 from extraction.vector_store import query_vector_store
-from config import GEMINI_MODEL
-
-load_dotenv()
+from config import GEMINI_MODEL, get_secret
 
 SYSTEM_PROMPT = """You are reading excerpts from a legal document.
 Based only on these excerpts, extract the value for the requested attribute.
@@ -46,7 +42,7 @@ def extract_attribute(
         - ``source_pages``: list of page numbers the chunks came from
         - ``source_chunks``: list of raw chunk texts used
     """
-    api_key = os.getenv("GOOGLE_API_KEY")
+    api_key = get_secret("GOOGLE_API_KEY")
 
     results = query_vector_store(collection, attribute_name, k=k)
 
