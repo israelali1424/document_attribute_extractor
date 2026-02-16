@@ -1,0 +1,21 @@
+{
+  "Who is the borrower in this credit agreement?": {
+    "value": "PDF SOLUTIONS, INC.",
+    "confidence": "high",
+    "reasoning": "Page 1 and Page 300 explicitly identify PDF SOLUTIONS, INC. as the Borrower.",
+    "source_pages": [
+      275,
+      296,
+      300,
+      278,
+      1
+    ],
+    "source_chunks": [
+      "any time owing by such Lender, such Issuing Lender, the Swingline Lender or any such\nAffiliate to or for the credit or the account of the Borrower or any other Credit Party against\nany and all of the obligations of the Borrower or such Credit Party now or hereafter existing\nunder this Agreement or any other Loan Document to such Lender, such Issuing Lender or the\nhttps://www.sec.gov/Archives/edgar/data/1120914/000155837025002503/pdfs-20250307xex10d1.htm 275/301",
+      "any other person with any similar role under the Credit Facilities) and without any duty to\naccount therefor to any other Lender, the Borrower or any Affiliate of the foregoing. Each\nLender, the Arranger and any Affiliate thereof may accept fees and other consideration from\nthe Borrower or any Affiliate thereof for services in connection with this Agreement, the\nCredit\n143\nhttps://www.sec.gov/Archives/edgar/data/1120914/000155837025002503/pdfs-20250307xex10d1.htm 296/301",
+      "IN WITNESS WHEREOF, the parties hereto have caused this Agreement to be\nexecuted under seal by their duly authorized officers, all as of the day and year first written\nabove.\nBORROWER:\nPDF SOLUTIONS, INC., as the Borrower\nBy: /s/Adnan Raza\nName: Adnan Raza\nTitle: Chief Financial Officer\nPDF Solutions, Inc.\nCredit Agreement\nSignature Page\nhttps://www.sec.gov/Archives/edgar/data/1120914/000155837025002503/pdfs-20250307xex10d1.htm 300/301",
+      "may otherwise have to bring any action or proceeding relating to this Agreement or any other\nLoan Document against the Borrower or any other Credit Party or its properties in the courts\nof any jurisdiction.\n134\nhttps://www.sec.gov/Archives/edgar/data/1120914/000155837025002503/pdfs-20250307xex10d1.htm 278/301",
+      "EX-10.1 2 pdfs-20250307xex10d1.htm EX-10.1\nExecution Version\n$70,000,000\nCREDIT AGREEMENT\ndated as of March 7, 2025,\nby and among\nPDF SOLUTIONS, INC.,\nas Borrower,\nthe Lenders referred to herein,\nas Lenders,\nand\nWELLS FARGO BANK, NATIONAL ASSOCIATION,\nas Administrative Agent,\nSwingline Lender and Issuing Lender\nWELLS FARGO SECURITIES, LLC,\nas Sole Lead Arranger and Bookrunner\nhttps://www.sec.gov/Archives/edgar/data/1120914/000155837025002503/pdfs-20250307xex10d1.htm 1/301"
+    ]
+  }
+}

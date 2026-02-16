@@ -3,7 +3,7 @@ from extraction.vector_store import load_vector_store
 from extraction.extractor import extract_all_attributes, save_results
 from extraction.vector_store import query_vector_store
 DEFAULT_ATTRIBUTES = [
-    "borrower",
+    "Who is the borrower in this credit agreement?",
 ]
 
 # Test Example

@@ -161,14 +161,14 @@ if __name__ == "__main__":
 
     # 3. Run test queries
     test_queries = [
-       "CREDIT AND SECURITY AGREEMENT"
-    ]
-
+       "Who is the borrower in this credit agreement?",
+        "How much is the credit agreement"
+]
     for query in test_queries:
         print(f"\n{'='*60}")
         print(f"Query: {query}")
         print("=" * 60)
-        results = query_vector_store(collection, query, k=1111)
+        results = query_vector_store(collection, query, k=11)
 
         for i in range(len(results["documents"][0])):
             doc_text = results["documents"][0][i]
